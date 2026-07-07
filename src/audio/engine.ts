@@ -99,6 +99,7 @@ export class AudioEngine {
   // per-frame param + feature push (pad tracks modes; analysis flows back).
   update(features: HadoFeatures, p: ParamState, nowMs: number): void {
     if (!this.started) return;
+    this.master.gain.setTargetAtTime(p.masterGain as number, this.ctx.currentTime, 0.02);
     this.fx.update(p);
     this.drive.curve = driveCurve(p.drive as number);
     this.masterFilter.frequency.setTargetAtTime(p.masterCut as number, this.now, 0.05);
