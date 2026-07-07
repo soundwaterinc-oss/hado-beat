@@ -155,18 +155,34 @@ function resize(): void {
 window.addEventListener("resize", resize);
 resize();
 
-let lastTs = performance.now();
-function frame(now: number): void {
-  const dt = Math.min(0.05, (now - lastTs) / 1000);
-  lastTs = now;
+// ── background-resilient logic loop ────────────────────────────────────
+// The field simulation + sequencer + audio run off a Web Worker metronome, NOT rAF,
+// so the beat AND the field keep evolving when the tab is hidden (rAF is throttled to a
+// stop in background; worker timers keep firing). rAF is used only for rendering.
+const workerSrc =
+  "let ms=16,t=null;onmessage=e=>{const d=e.data;" +
+  "if(d.cmd==='config')ms=d.ms;" +
+  "else if(d.cmd==='next')t=setTimeout(()=>postMessage(0),ms);" +
+  "else if(d.cmd==='stop'){clearTimeout(t);t=null;}};";
+const clockWorker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: "application/javascript" })));
 
-  field.step(state, potential.vmax);
-  spectrum.accumulate(field);
+let lastLogic = performance.now();
+function logic(): void {
+  const now = performance.now();
+  let dt = (now - lastLogic) / 1000;
+  lastLogic = now;
+  dt = Math.min(0.5, dt);
+  // catch-up sim frames: when a hidden tab throttles the timer, run several steps so the
+  // field keeps advancing (quantum gating stays alive) instead of freezing.
+  const frames = Math.max(1, Math.min(4, Math.round(dt / 0.016)));
+  for (let k = 0; k < frames; k++) {
+    field.step(state, potential.vmax);
+    spectrum.accumulate(field);
+  }
   features.t = now / 1000;
   features.modes = spectrum.update(now, state.modeCount as number, state.fRoot as number, state.warp as number);
   probes.sample(field, features.probes);
 
-  // running max for lane gating normalisation
   let mx = 1e-6;
   const d = field.reducedData;
   for (let i = 0; i < d.length; i += 4) if (d[i] > mx) mx = d[i];
@@ -175,15 +191,27 @@ function frame(now: number): void {
   seq.schedule(state);
   audio.update(features, state, now);
   mutator.update(dt, features.analysis, state);
-
   midi.sendCC(features, state, now);
   td.sendState(features, state, now);
   td.sendField(field.reducedData, state, now);
+}
+clockWorker.onmessage = () => {
+  try { logic(); } catch (err) { console.error(err); }
+  clockWorker.postMessage({ cmd: "next" });
+};
+clockWorker.postMessage({ cmd: "next" });
 
+// hidden tab: widen scheduler lookahead so throttled timers can't create audible gaps.
+document.addEventListener("visibilitychange", () => {
+  seq.lookahead = document.hidden ? 1.4 : 0.3;
+  clockWorker.postMessage({ cmd: "config", ms: document.hidden ? 80 : 16 });
+});
+
+// ── render loop (visuals only; auto-pauses when the tab is hidden) ──────
+function frame(): void {
   field.render(state, ui.canvas.width, ui.canvas.height);
   ui.setMeter(features.analysis.rms);
   ui.setHud(`${field.gridSize}² · ${state.gateMode} · ${seq.running ? "▶" : "■"}${state.freeze ? " · FROZEN" : ""}`);
-
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

@@ -5,7 +5,6 @@ import { LANES, type Lane } from "../audio/drums";
 import type { ParamState } from "../core/params";
 
 export const ROWS: (Lane | "bass")[] = [...LANES, "bass"];
-const LOOKAHEAD = 0.12; // seconds scheduled ahead
 
 export interface BeatDeps {
   now: () => number;                                  // AudioContext.currentTime
@@ -21,6 +20,9 @@ export class BeatSequencer {
   prob: number[][] = ROWS.map(() => Array(16).fill(1));
   running = false;
   step = 0;
+  // seconds scheduled ahead of the audio clock; widened when the tab is hidden so
+  // background timer throttling can't create gaps.
+  lookahead = 0.3;
   private nextTime = 0;
 
   constructor(private deps: BeatDeps) {
@@ -49,7 +51,7 @@ export class BeatSequencer {
     if (!this.running) return;
     const now = this.deps.now();
     const sec16 = 60 / (p.bpm as number) / 4;
-    while (this.nextTime < now + LOOKAHEAD) {
+    while (this.nextTime < now + this.lookahead) {
       this.fire(this.step, this.nextTime, p, sec16);
       this.nextTime += sec16;
       this.step = (this.step + 1) % 16;

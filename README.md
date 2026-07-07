@@ -56,3 +56,12 @@ same seam that lets any EL-SYSTEMA machine join `el-systema-core`.
 
 MUTATE feedback and the dormant TouchDesigner bridge (`io/tdBridge.ts`, no socket until
 you press Connect) carry over unchanged from HADŌ.
+
+## Background playback & language
+
+- **Keeps playing in the background** — the field simulation, sequencer and audio run off a
+  Web Worker metronome (not `requestAnimationFrame`), so the beat and the quantum-gated
+  field keep evolving even when the tab is hidden or another window is focused. The
+  scheduler widens its lookahead to 1.4 s when hidden so throttled timers stay gapless.
+  Open several tabs to layer multiple instances — each keeps running.
+- **EN / 日本語** — toggle in the top-right tab bar; all labels switch live (persisted).
