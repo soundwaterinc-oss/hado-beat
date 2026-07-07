@@ -67,7 +67,7 @@ export class BeatUI {
     stage.append(this.canvas, this.hud, this.warnEl);
 
     const panelHost = div("panelhost");
-    panelHost.style.cssText = "flex:0 0 auto;max-height:34vh;overflow:hidden;";
+    panelHost.style.cssText = "flex:0 0 auto;max-height:36vh;overflow-y:auto;";
     for (const tab of TABS) {
       const panel = document.createElement("div");
       panel.className = "panel" + (tab === "IO" ? " io" : tab === "MUTATE" ? " mutate" : "");
