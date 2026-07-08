@@ -20,6 +20,7 @@ export class BeatSequencer {
   prob: number[][] = ROWS.map(() => Array(16).fill(1));
   running = false;
   step = 0;
+  cycle = 0;
   // seconds scheduled ahead of the audio clock; widened when the tab is hidden so
   // background timer throttling can't create gaps.
   lookahead = 0.3;
@@ -55,6 +56,7 @@ export class BeatSequencer {
       this.fire(this.step, this.nextTime, p, sec16);
       this.nextTime += sec16;
       this.step = (this.step + 1) % 16;
+      if (this.step === 0) this.cycle++;
     }
   }
 

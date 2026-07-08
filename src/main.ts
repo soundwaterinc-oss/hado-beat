@@ -17,6 +17,7 @@ import { MidiOut } from "./io/midi";
 import { TdBridge } from "./io/tdBridge";
 import { BeatUI, type UIHooks } from "./ui/layout";
 import { BeatSequencer, ROWS } from "./seq/beat";
+import { Arranger } from "./seq/arranger";
 import type { Lane } from "./audio/drums";
 
 const state = defaultState();
@@ -29,6 +30,8 @@ const spectrum = new Spectrum();
 const probes = new Probes();
 const audio = new AudioEngine();
 const mutator = new Mutator();
+const arranger = new Arranger();
+let stageInfo = "";
 const midi = new MidiOut();
 const td = new TdBridge();
 
@@ -189,6 +192,15 @@ function logic(): void {
   fieldMax = mx;
 
   seq.schedule(state);
+  audio.bass.setCharacter(state.character as string);
+  audio.drums.setCharacter(state.character as string);
+  if (state.arrangeOn as boolean) {
+    const info = arranger.update(seq.cycle, state, seq, {
+      engine: state.engine as string, climate: state.climate as string,
+      current: state.current as string, soil: state.soil as string, weather: state.weather as string,
+    });
+    if (info) { ui.refreshAll(); stageInfo = `stage ${info.stage} · sec ${info.section}`; }
+  }
   audio.update(features, state, now);
   mutator.update(dt, features.analysis, state);
   midi.sendCC(features, state, now);
@@ -211,7 +223,7 @@ document.addEventListener("visibilitychange", () => {
 function frame(): void {
   field.render(state, ui.canvas.width, ui.canvas.height);
   ui.setMeter(features.analysis.rms);
-  ui.setHud(`${field.gridSize}² · ${state.gateMode} · ${seq.running ? "▶" : "■"}${state.freeze ? " · FROZEN" : ""}`);
+  ui.setHud(`${state.character} · ${state.gateMode}${stageInfo ? " · " + stageInfo : ""} · ${seq.running ? "▶" : "■"}${state.freeze ? " · FROZEN" : ""}`);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

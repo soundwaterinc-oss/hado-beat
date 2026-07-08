@@ -37,6 +37,9 @@ const PARAM_JA: Partial<Record<ParamName, string>> = {
   rmsTarget: "RMS目標", centTarget: "重心目標", freeze: "凍結",
   midiEnable: "MIDI有効", midiCh: "MIDIチャンネル", wsRate: "WS送信レート",
   sendField: "場送信", fieldRate: "場レート",
+  character: "キャラクター", arrangeOn: "自動展開", engine: "展開エンジン",
+  climate: "気候帯", current: "潮流", soil: "土質", weather: "天気",
+  sectionBars: "セクション小節", stageBars: "ステージ小節",
 };
 
 const DESC_EN: Partial<Record<ParamName, string>> = {
@@ -77,6 +80,15 @@ const DESC_EN: Partial<Record<ParamName, string>> = {
   centTarget: "brightness the feedback aims for", freeze: "pause the mutation loop",
   midiEnable: "enable WebMIDI output", midiCh: "MIDI channel", wsRate: "TouchDesigner JSON send rate",
   sendField: "stream the 64×64 |ψ|² field to TD", fieldRate: "TD field-frame rate",
+  character: "bass-led genre voice: JAZZ / DUB / MINIMAL / DUBSTEP (wobble) / NOISE (drive)",
+  arrangeOn: "auto-evolve the beat every section / stage (keeps the genre)",
+  engine: "how factors map to development: PLANT growth · PHYSICS oscillation · GEOMETRY quantised",
+  climate: "factor: tropical→busy … polar→sparse (energy & tempo)",
+  current: "factor: warm / cold / gyre / upwelling (motion & density)",
+  soil: "factor: sand / clay / loam / volcanic (which voices dominate)",
+  weather: "factor: clear / rain / storm / fog (swing, space, reverb)",
+  sectionBars: "cycles per section — new pattern each section",
+  stageBars: "cycles per stage of the 1→5 arc (sparse→dense→resolve)",
 };
 const DESC_JP: Partial<Record<ParamName, string>> = {
   geoMode: "ポテンシャルV（井戸と壁）を作る植物幾何の種類",
@@ -115,6 +127,15 @@ const DESC_JP: Partial<Record<ParamName, string>> = {
   centTarget: "フィードバックが目指す明るさ", freeze: "変性ループを一時停止",
   midiEnable: "WebMIDI出力を有効化", midiCh: "MIDIチャンネル", wsRate: "TD JSON送信レート",
   sendField: "64×64 |ψ|² 場をTDへ送出", fieldRate: "TD場フレームレート",
+  character: "ベース主体のジャンル音色: JAZZ/DUB/MINIMAL/DUBSTEP(ワブル)/NOISE(歪み)",
+  arrangeOn: "セクション/ステージごとにビートを自動変性（ジャンルは保持）",
+  engine: "ファクターの写像: PLANT成長 · PHYSICS振動 · GEOMETRY量子化",
+  climate: "ファクター: 熱帯→密…極地→疎（エネルギー・テンポ）",
+  current: "ファクター: 暖流/寒流/環流/湧昇（動き・密度）",
+  soil: "ファクター: 砂/粘土/壌土/火山（どの声部が支配的か）",
+  weather: "ファクター: 快晴/雨/嵐/霧（スイング・空間・残響）",
+  sectionBars: "1セクションの周期数——毎セクション新パターン",
+  stageBars: "1→5アークの各ステージの周期数（疎→密→終）",
 };
 export function paramDesc(name: ParamName): string {
   return (current === "JP" ? DESC_JP[name] : DESC_EN[name]) ?? "";
@@ -130,7 +151,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
   EN: {
     "tab.PERFORM": "PLAY", "tab.INFO": "INFO",
     "tab.GEO": "GEO", "tab.FIELD": "FIELD", "tab.BEAT": "BEAT", "tab.SYNTH": "SYNTH",
-    "tab.MUTATE": "MUTATE", "tab.IO": "IO",
+    "tab.EVOLVE": "EVOLVE", "tab.MUTATE": "MUTATE", "tab.IO": "IO",
     perform: "PERFORMANCE", quickPresets: "PRESETS", gateModeLabel: "GATE MODE",
     conceptTitle: "HADŌ BEAT / 波動拍 — concept",
     concept:
@@ -154,7 +175,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
   JP: {
     "tab.PERFORM": "演奏", "tab.INFO": "説明",
     "tab.GEO": "幾何", "tab.FIELD": "場", "tab.BEAT": "拍", "tab.SYNTH": "音源",
-    "tab.MUTATE": "変性", "tab.IO": "入出力",
+    "tab.EVOLVE": "展開", "tab.MUTATE": "変性", "tab.IO": "入出力",
     perform: "演奏コントロール", quickPresets: "プリセット", gateModeLabel: "ゲート方式",
     conceptTitle: "HADŌ BEAT / 波動拍 — 概念",
     concept:

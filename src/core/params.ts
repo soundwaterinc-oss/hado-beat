@@ -1,6 +1,8 @@
 // params.ts — single source of truth for all parameters (drives UI, preset, TD send).
 // HADŌ BEAT / 波動拍 — the quantum field drives a rhythm engine.
-export type ParamTab = "PERFORM" | "GEO" | "FIELD" | "BEAT" | "SYNTH" | "MUTATE" | "IO" | "INFO";
+import { CHARACTERS } from "../audio/bass";
+import { ENGINES, CLIMATES, CURRENTS, SOILS, WEATHERS } from "../seq/arranger";
+export type ParamTab = "PERFORM" | "GEO" | "FIELD" | "BEAT" | "SYNTH" | "EVOLVE" | "MUTATE" | "IO" | "INFO";
 
 export interface NumberParam {
   kind: "number";
@@ -95,6 +97,7 @@ export const PARAMS = {
   sidechain: n("BEAT", "sidechain", 0, 1, 0.6, 0.01),
 
   // ── SYNTH ────────────────────────────────────────────────────────────
+  character: e("SYNTH", "character", CHARACTERS, "DUB"),
   modeCount: n("SYNTH", "modes", 1, 16, 6, 1),
   fRoot: n("SYNTH", "f root", 30, 400, 55, 1, "Hz"),
   warp: n("SYNTH", "warp", 0.3, 2.0, 0.7, 0.01),
@@ -116,6 +119,16 @@ export const PARAMS = {
   reverbMix: n("SYNTH", "reverb mix", 0, 1, 0.18, 0.01),
   fxSendDrum: n("SYNTH", "fx send drum", 0, 1, 0.2, 0.01),
   fxSendSynth: n("SYNTH", "fx send synth", 0, 1, 0.35, 0.01),
+
+  // ── EVOLVE (auto arrangement) ────────────────────────────────────────
+  arrangeOn: b("EVOLVE", "auto evolve", true),
+  engine: e("EVOLVE", "engine", ENGINES, "PLANT"),
+  climate: e("EVOLVE", "climate", CLIMATES, "temperate"),
+  current: e("EVOLVE", "current", CURRENTS, "warm"),
+  soil: e("EVOLVE", "soil", SOILS, "loam"),
+  weather: e("EVOLVE", "weather", WEATHERS, "clear"),
+  sectionBars: n("EVOLVE", "section bars", 4, 32, 16, 1),
+  stageBars: n("EVOLVE", "stage bars", 8, 64, 32, 1),
 
   // ── MUTATE ───────────────────────────────────────────────────────────
   feedAmount: n("MUTATE", "feed amount", 0, 1, 0.3, 0.01),

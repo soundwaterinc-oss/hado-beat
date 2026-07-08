@@ -10,11 +10,22 @@ const LEVEL_PARAM: Record<Lane, keyof ParamState> = {
   ohat: "ohatLevel", tom: "tomLevel", rim: "rimLevel", perc: "percLevel",
 };
 
+interface DC { snareDecay: number; snareNoise: number; snareBP: number; hatTone: number; kickDecay: number }
+const DRUM_CFG: Record<string, DC> = {
+  JAZZ:    { snareDecay: 1.7, snareNoise: 1.3, snareBP: 0.8, hatTone: 1.2, kickDecay: 0.8 },
+  DUB:     { snareDecay: 1.3, snareNoise: 1.0, snareBP: 0.9, hatTone: 0.8, kickDecay: 1.3 },
+  MINIMAL: { snareDecay: 0.6, snareNoise: 0.9, snareBP: 1.1, hatTone: 1.3, kickDecay: 0.7 },
+  DUBSTEP: { snareDecay: 1.1, snareNoise: 1.1, snareBP: 1.0, hatTone: 1.0, kickDecay: 1.5 },
+  NOISE:   { snareDecay: 1.0, snareNoise: 1.6, snareBP: 1.3, hatTone: 1.1, kickDecay: 1.0 },
+};
+
 export class DrumKit {
   private noise: AudioBuffer;
+  private dc: DC = DRUM_CFG.DUB;
   constructor(private ctx: AudioContext, private out: GainNode) {
     this.noise = this.makeNoise(1);
   }
+  setCharacter(id: string): void { this.dc = DRUM_CFG[id] ?? DRUM_CFG.DUB; }
 
   private makeNoise(sec: number): AudioBuffer {
     const len = Math.floor(this.ctx.sampleRate * sec);
@@ -57,7 +68,7 @@ export class DrumKit {
   private kick(time: number, lvl: number, p: ParamState): void {
     const ctx = this.ctx;
     const tune = p.kickTune as number;
-    const decay = p.kickDecay as number;
+    const decay = (p.kickDecay as number) * this.dc.kickDecay;
     const osc = ctx.createOscillator();
     osc.type = "sine";
     osc.frequency.setValueAtTime(tune * 3.2, time);
@@ -77,12 +88,12 @@ export class DrumKit {
     const ctx = this.ctx;
     const tone = ctx.createOscillator();
     tone.type = "triangle"; tone.frequency.value = p.snareTune as number;
-    const tg = ctx.createGain(); this.env(tg, time, lvl * 0.5, 0.14);
+    const tg = ctx.createGain(); this.env(tg, time, lvl * 0.5, 0.14 * this.dc.snareDecay);
     tone.connect(tg); tg.connect(this.out);
-    tone.start(time); tone.stop(time + 0.2);
-    const nz = this.noiseSrc(time, 0.2);
-    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.7;
-    const ng = ctx.createGain(); this.env(ng, time, lvl, 0.18);
+    tone.start(time); tone.stop(time + 0.2 * this.dc.snareDecay + 0.05);
+    const nz = this.noiseSrc(time, 0.2 * this.dc.snareDecay);
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800 * this.dc.snareBP; bp.Q.value = 0.7;
+    const ng = ctx.createGain(); this.env(ng, time, lvl * this.dc.snareNoise, 0.18 * this.dc.snareDecay);
     nz.connect(bp); bp.connect(ng); ng.connect(this.out);
   }
 
@@ -106,7 +117,7 @@ export class DrumKit {
   private hat(time: number, lvl: number, p: ParamState, decay: number): void {
     const ctx = this.ctx;
     const nz = this.noiseSrc(time, decay);
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = p.hatTone as number;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = (p.hatTone as number) * this.dc.hatTone;
     const g = ctx.createGain(); this.env(g, time, lvl * 0.6, decay, 0.0005);
     nz.connect(hp); hp.connect(g); g.connect(this.out);
   }
