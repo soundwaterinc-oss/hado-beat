@@ -10,14 +10,21 @@ const LEVEL_PARAM: Record<Lane, keyof ParamState> = {
   ohat: "ohatLevel", tom: "tomLevel", rim: "rimLevel", perc: "percLevel",
 };
 
-interface DC { snareDecay: number; snareNoise: number; snareBP: number; hatTone: number; kickDecay: number }
+interface DC { snareDecay: number; snareNoise: number; snareBP: number; hatTone: number; kickDecay: number; kickDrive: number }
 const DRUM_CFG: Record<string, DC> = {
-  JAZZ:    { snareDecay: 1.7, snareNoise: 1.3, snareBP: 0.8, hatTone: 1.2, kickDecay: 0.8 },
-  DUB:     { snareDecay: 1.3, snareNoise: 1.0, snareBP: 0.9, hatTone: 0.8, kickDecay: 1.3 },
-  MINIMAL: { snareDecay: 0.6, snareNoise: 0.9, snareBP: 1.1, hatTone: 1.3, kickDecay: 0.7 },
-  DUBSTEP: { snareDecay: 1.1, snareNoise: 1.1, snareBP: 1.0, hatTone: 1.0, kickDecay: 1.5 },
-  NOISE:   { snareDecay: 1.0, snareNoise: 1.6, snareBP: 1.3, hatTone: 1.1, kickDecay: 1.0 },
+  JAZZ:    { snareDecay: 1.7, snareNoise: 1.3, snareBP: 0.8, hatTone: 1.2, kickDecay: 0.8, kickDrive: 0.12 },
+  DUB:     { snareDecay: 1.3, snareNoise: 1.0, snareBP: 0.9, hatTone: 0.8, kickDecay: 1.3, kickDrive: 0.3 },
+  MINIMAL: { snareDecay: 0.6, snareNoise: 0.9, snareBP: 1.1, hatTone: 1.3, kickDecay: 0.7, kickDrive: 0.25 },
+  DUBSTEP: { snareDecay: 1.1, snareNoise: 1.1, snareBP: 1.0, hatTone: 1.0, kickDecay: 1.5, kickDrive: 0.6 },
+  NOISE:   { snareDecay: 1.0, snareNoise: 1.6, snareBP: 1.3, hatTone: 1.1, kickDecay: 1.0, kickDrive: 0.85 },
 };
+
+// tanh saturation curve for the gritty kick body
+function kickCurve(drive: number): Float32Array<ArrayBuffer> {
+  const n = 1024, c = new Float32Array(n), k = 1 + drive * 45;
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+  return c;
+}
 
 export class DrumKit {
   private noise: AudioBuffer;
@@ -65,22 +72,30 @@ export class DrumKit {
     }
   }
 
+  // punchy, gritty, physical kick (Ikeda-ish): deep sine with a fast pitch drop through a
+  // saturation shaper, a mid "thwack" transient, and a razor high click.
   private kick(time: number, lvl: number, p: ParamState): void {
     const ctx = this.ctx;
     const tune = p.kickTune as number;
     const decay = (p.kickDecay as number) * this.dc.kickDecay;
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(tune * 3.2, time);
-    osc.frequency.exponentialRampToValueAtTime(tune, time + 0.06);
-    const g = ctx.createGain();
-    this.env(g, time, lvl, decay, 0.001);
-    osc.connect(g); g.connect(this.out);
+    // body — sine, sharp exponential pitch drop, through tanh drive for grit
+    const osc = ctx.createOscillator(); osc.type = "sine";
+    osc.frequency.setValueAtTime(tune * 6, time);
+    osc.frequency.exponentialRampToValueAtTime(tune, time + 0.04);
+    const shaper = ctx.createWaveShaper(); shaper.curve = kickCurve(this.dc.kickDrive); shaper.oversample = "2x";
+    const g = ctx.createGain(); this.env(g, time, lvl, decay, 0.0008);
+    osc.connect(shaper); shaper.connect(g); g.connect(this.out);
     osc.start(time); osc.stop(time + decay + 0.05);
-    // attack click
-    const click = this.noiseSrc(time, 0.01);
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1200;
-    const cg = ctx.createGain(); this.env(cg, time, lvl * 0.4, 0.01);
+    // thwack — mid transient body for punch
+    const t2 = ctx.createOscillator(); t2.type = "triangle";
+    t2.frequency.setValueAtTime(tune * 11, time);
+    t2.frequency.exponentialRampToValueAtTime(tune * 2, time + 0.014);
+    const tg = ctx.createGain(); this.env(tg, time, lvl * 0.7, 0.02, 0.0005);
+    t2.connect(tg); tg.connect(this.out); t2.start(time); t2.stop(time + 0.05);
+    // click — razor high transient, grittier with drive
+    const click = this.noiseSrc(time, 0.006);
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2600;
+    const cg = ctx.createGain(); this.env(cg, time, lvl * (0.35 + 0.55 * this.dc.kickDrive), 0.006, 0.0004);
     click.connect(hp); hp.connect(cg); cg.connect(this.out);
   }
 
