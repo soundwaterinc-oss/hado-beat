@@ -21,6 +21,7 @@ export interface EnumParam {
   label: string;
   options: readonly string[];
   def: string;
+  labels?: Record<string, string>; // optional display labels (value stays the id)
 }
 export interface BoolParam {
   kind: "bool";
@@ -34,8 +35,8 @@ const n = (
   tab: ParamTab, label: string, min: number, max: number, def: number,
   step?: number, unit?: string,
 ): NumberParam => ({ kind: "number", tab, label, min, max, def, step, unit });
-const e = (tab: ParamTab, label: string, options: readonly string[], def: string): EnumParam =>
-  ({ kind: "enum", tab, label, options, def });
+const e = (tab: ParamTab, label: string, options: readonly string[], def: string, labels?: Record<string, string>): EnumParam =>
+  ({ kind: "enum", tab, label, options, def, labels });
 const b = (tab: ParamTab, label: string, def: boolean): BoolParam =>
   ({ kind: "bool", tab, label, def });
 
