@@ -84,7 +84,7 @@ export class Arranger {
     state.reverbMix = clamp(g.reverb + weV * 0.2, 0, 1);
     state.patternDensity = clamp(0.25 + curV * 0.5, 0, 1);
     state.gateThresh = clamp(0.28 + (1 - energy) * 0.2, 0, 1);
-    state.gateMode = f.engine === "GEOMETRY" ? (sec % 2 ? "AND" : "MANUAL") : f.engine === "PHYSICS" ? "OR" : (sec % 2 ? "OR" : "AND");
+    // gateMode is intentionally NOT auto-changed — the user's chosen gate stays fixed.
     state.bassCutoff = clamp(Math.round(500 + cV * 1400 + energy * 700), 100, 6000);
 
     const dens = (l: number): number => {
