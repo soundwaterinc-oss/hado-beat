@@ -19,10 +19,10 @@ const DRUM_CFG: Record<string, DC> = {
   NOISE:   { snareDecay: 1.0, snareNoise: 1.6, snareBP: 1.3, hatTone: 1.1, kickDecay: 1.0, kickDrive: 0.85 },
 };
 
-// tanh saturation curve for the gritty kick body
+// HARD-CLIP curve — chunky square-ish edges for the "cable-pull" gutsy kick.
 function kickCurve(drive: number): Float32Array<ArrayBuffer> {
-  const n = 1024, c = new Float32Array(n), k = 1 + drive * 45;
-  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+  const n = 1024, c = new Float32Array(n), g = 1 + drive * 14;
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.max(-1, Math.min(1, x * g)) * 0.92; }
   return c;
 }
 
@@ -72,31 +72,42 @@ export class DrumKit {
     }
   }
 
-  // punchy, gritty, physical kick (Ikeda-ish): deep sine with a fast pitch drop through a
-  // saturation shaper, a mid "thwack" transient, and a razor high click.
+  // "cable-pull" kick — ブツっとゴツい: instant onset, hard-clipped chunky body, abrupt
+  // gated cut-off (that hard step IS the unplug pop), plus a broadband crackle + deep sub.
   private kick(time: number, lvl: number, p: ParamState): void {
     const ctx = this.ctx;
     const tune = p.kickTune as number;
-    const decay = (p.kickDecay as number) * this.dc.kickDecay;
-    // body — sine, sharp exponential pitch drop, through tanh drive for grit
+    const drive = this.dc.kickDrive;
+    const bodyLen = Math.max(0.045, (p.kickDecay as number) * this.dc.kickDecay * 0.5);
+    const cut = time + bodyLen;
+    const shaper = ctx.createWaveShaper(); shaper.curve = kickCurve(0.4 + drive * 0.6); shaper.oversample = "4x";
+    // body: sine + square, fast pitch drop, hard clipped
     const osc = ctx.createOscillator(); osc.type = "sine";
-    osc.frequency.setValueAtTime(tune * 6, time);
-    osc.frequency.exponentialRampToValueAtTime(tune, time + 0.04);
-    const shaper = ctx.createWaveShaper(); shaper.curve = kickCurve(this.dc.kickDrive); shaper.oversample = "2x";
-    const g = ctx.createGain(); this.env(g, time, lvl, decay, 0.0008);
-    osc.connect(shaper); shaper.connect(g); g.connect(this.out);
-    osc.start(time); osc.stop(time + decay + 0.05);
-    // thwack — mid transient body for punch
-    const t2 = ctx.createOscillator(); t2.type = "triangle";
-    t2.frequency.setValueAtTime(tune * 11, time);
-    t2.frequency.exponentialRampToValueAtTime(tune * 2, time + 0.014);
-    const tg = ctx.createGain(); this.env(tg, time, lvl * 0.7, 0.02, 0.0005);
-    t2.connect(tg); tg.connect(this.out); t2.start(time); t2.stop(time + 0.05);
-    // click — razor high transient, grittier with drive
-    const click = this.noiseSrc(time, 0.006);
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2600;
-    const cg = ctx.createGain(); this.env(cg, time, lvl * (0.35 + 0.55 * this.dc.kickDrive), 0.006, 0.0004);
-    click.connect(hp); hp.connect(cg); cg.connect(this.out);
+    osc.frequency.setValueAtTime(tune * 5, time);
+    osc.frequency.exponentialRampToValueAtTime(tune, time + 0.022);
+    const sq = ctx.createOscillator(); sq.type = "square";
+    sq.frequency.setValueAtTime(tune * 2.5, time);
+    sq.frequency.exponentialRampToValueAtTime(tune, time + 0.03);
+    const sqg = ctx.createGain(); sqg.gain.value = 0.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(lvl * 1.25, time + 0.0004);  // near-instant onset
+    g.gain.setValueAtTime(lvl * 1.05, cut);                     // hold
+    g.gain.linearRampToValueAtTime(0, cut + 0.0012);            // ABRUPT cut = ブツッ
+    osc.connect(shaper); sq.connect(sqg); sqg.connect(shaper); shaper.connect(g); g.connect(this.out);
+    osc.start(time); osc.stop(cut + 0.02); sq.start(time); sq.stop(cut + 0.02);
+    // deep DC-ish thump, also cut abruptly
+    const sub = ctx.createOscillator(); sub.type = "sine"; sub.frequency.value = tune * 0.7;
+    const subg = ctx.createGain();
+    subg.gain.setValueAtTime(0, time); subg.gain.linearRampToValueAtTime(lvl * 0.9, time + 0.0006);
+    subg.gain.setValueAtTime(lvl * 0.7, cut); subg.gain.linearRampToValueAtTime(0, cut + 0.001);
+    sub.connect(subg); subg.connect(this.out); sub.start(time); sub.stop(cut + 0.02);
+    // broadband "pull" crackle: full-range noise, ultra short, hard clipped
+    const nz = this.noiseSrc(time, 0.004);
+    const nsh = ctx.createWaveShaper(); nsh.curve = kickCurve(0.8);
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(lvl * (0.5 + 0.5 * drive), time); ng.gain.linearRampToValueAtTime(0, time + 0.004);
+    nz.connect(nsh); nsh.connect(ng); ng.connect(this.out);
   }
 
   private snare(time: number, lvl: number, p: ParamState): void {
