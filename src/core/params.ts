@@ -2,6 +2,7 @@
 // HADŌ BEAT / 波動拍 — the quantum field drives a rhythm engine.
 import { CHARACTERS } from "../audio/bass";
 import { ENGINES, CLIMATES, CURRENTS, SOILS, WEATHERS } from "../seq/arranger";
+import { SCALE_IDS } from "../audio/scales";
 export type ParamTab = "PERFORM" | "GEO" | "FIELD" | "BEAT" | "SYNTH" | "EVOLVE" | "MUTATE" | "IO" | "INFO";
 
 export interface NumberParam {
@@ -101,7 +102,7 @@ export const PARAMS = {
   modeCount: n("SYNTH", "modes", 1, 16, 6, 1),
   fRoot: n("SYNTH", "f root", 30, 400, 55, 1, "Hz"),
   warp: n("SYNTH", "warp", 0.3, 2.0, 0.7, 0.01),
-  scaleQuantize: e("SYNTH", "scale", ["chromatic", "penta", "just", "gamelan"], "penta"),
+  scaleQuantize: e("SYNTH", "scale", SCALE_IDS, "penta"),
   transpose: n("SYNTH", "transpose", -24, 24, 0, 1),
   bassLevel: n("SYNTH", "bass level", 0, 1, 0.6, 0.01),
   bassOct: n("SYNTH", "bass octave", -2, 2, 0, 1),
