@@ -27,7 +27,7 @@ export class AudioEngine {
   readonly analyser: Analyser;
   private fx: FxChain;
   private masterSum: GainNode;
-  private master: GainNode;
+  readonly masterOut: GainNode;   // exposed for the EL-SYSTEMA field bridge (observe-only tap)
   private drive: WaveShaperNode;
   private masterFilter: BiquadFilterNode;
   private limiter: DynamicsCompressorNode;
@@ -50,7 +50,7 @@ export class AudioEngine {
     this.sendDrum = ctx.createGain();
     this.sendSynth = ctx.createGain();
     this.masterSum = ctx.createGain();
-    this.master = ctx.createGain(); this.master.gain.value = 0.9;
+    this.masterOut = ctx.createGain(); this.masterOut.gain.value = 0.9;
 
     this.drive = ctx.createWaveShaper();
     this.drive.curve = driveCurve(0.15); this.drive.oversample = "2x";
@@ -71,8 +71,8 @@ export class AudioEngine {
     this.masterSum.connect(this.drive);
     this.drive.connect(this.masterFilter);
     this.masterFilter.connect(this.limiter);
-    this.limiter.connect(this.master);
-    this.master.connect(this.analyser.input);
+    this.limiter.connect(this.masterOut);
+    this.masterOut.connect(this.analyser.input);
     this.analyser.input.connect(ctx.destination);
 
     this.drums = new DrumKit(ctx, this.drumBus);
@@ -99,7 +99,7 @@ export class AudioEngine {
   // per-frame param + feature push (pad tracks modes; analysis flows back).
   update(features: HadoFeatures, p: ParamState, nowMs: number): void {
     if (!this.started) return;
-    this.master.gain.setTargetAtTime(p.masterGain as number, this.ctx.currentTime, 0.02);
+    this.masterOut.gain.setTargetAtTime(p.masterGain as number, this.ctx.currentTime, 0.02);
     this.fx.update(p);
     this.drive.curve = driveCurve(p.drive as number);
     this.masterFilter.frequency.setTargetAtTime(p.masterCut as number, this.now, 0.05);

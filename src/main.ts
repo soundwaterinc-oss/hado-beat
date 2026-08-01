@@ -126,6 +126,73 @@ const hooks: UIHooks = {
 const root = document.getElementById("app")!;
 const ui = new BeatUI(root, state, seq, hooks);
 
+// ---- EL-SYSTEMA Live field bridge (opt-in via ?field) ----------------------
+// Lets the integrated hub play, observe and macro-drive HADŌ BEAT over the shared
+// field. Sound & UI are unchanged; inert unless the URL carries ?field. Macros map
+// to A/B/C (control-contract §4.1): A=場のエネルギー/密度, B=拍の分割/複雑度・音色, C=空間/残響.
+declare global {
+  interface Window {
+    registerElSystemaInstrument?: (config: {
+      id: string;
+      audioContext?: AudioContext;
+      outputNode?: AudioNode;
+      sharedAnalyser?: AnalyserNode;
+      onPlay?: () => void;
+      onStop?: () => void;
+      onSetParam?: (name: string, value: number) => void;
+      onLoadPreset?: (preset: Record<string, unknown>) => void;
+      onSnapshot?: () => Record<string, unknown>;
+    }) => unknown;
+  }
+}
+const FIELD_ON = /[?&#]field/.test(location.href);
+let fieldBridgeRegistered = false;
+const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+
+function applyMacro(name: string, value: number): void {
+  const v = clamp01(value);
+  switch (name) {
+    case "macro.a": // 密度・エネルギー・活性
+      state.patternDensity = lerp(0.05, 1, v);
+      state.gateThresh = lerp(0.72, 0.12, v);   // more A opens the gate
+      state.accentAmt = lerp(0.2, 0.95, v);
+      break;
+    case "macro.b": // 音色・構造・組織（拍の分割/複雑度＋音色）
+      state.swing = lerp(0.02, 0.6, v);
+      state.masterCut = lerp(1200, 18000, v);
+      state.drive = lerp(0.02, 0.7, v);
+      break;
+    case "macro.c": // 空間・残響・拡がり
+      state.reverbMix = lerp(0.03, 0.85, v);
+      state.fxSendDrum = lerp(0.05, 0.7, v);
+      state.fxSendSynth = lerp(0.1, 0.8, v);
+      state.delayFb = lerp(0.05, 0.6, v);
+      break;
+    case "volume":
+      state.masterGain = lerp(0, 1.2, v);
+      break;
+    default:
+      break;
+  }
+}
+
+function maybeRegisterFieldBridge(): void {
+  if (!FIELD_ON || fieldBridgeRegistered || typeof window.registerElSystemaInstrument !== "function") return;
+  window.registerElSystemaInstrument({
+    id: "hado-beat",
+    audioContext: audio.ctx,
+    outputNode: audio.masterOut,          // observe-only tap; audio graph unchanged
+    onPlay: () => { void audio.resume(); if (!seq.running) { seq.toggle(); ui.setPlaying(true); } },
+    onStop: () => { if (seq.running) { seq.toggle(); ui.setPlaying(false); } },
+    onSetParam: (name, value) => applyMacro(name, value),
+    onLoadPreset: (preset) => { Object.assign(state, preset); ui.refreshAll(); rebakeGeometry(); },
+    onSnapshot: () => ({ ...state }) as Record<string, unknown>,
+  });
+  fieldBridgeRegistered = true;
+}
+maybeRegisterFieldBridge();
+
 field = new QuantumField(ui.canvas, settings.gridSize);
 potential = new Potential(field.gridSize);
 rebakeGeometry();
